@@ -101,7 +101,7 @@ class OntologyService:
         if not rows:
             return stats
 
-        # 2) Собираем unique uri всех классов (root + desc)
+        # 2) Собираем уникальные uri всех классов (root + desc)
         class_uris = set()
         for r in rows:
             root_node = r.get("root")
@@ -223,9 +223,17 @@ class OntologyService:
     def delete_class_attribute(self, class_uri: str, attr_name: str = None, attr_uri: str = None):
         stats = {"attribute_node_deleted": False, "objects_touched": 0}
 
+        # Получаем информацию об атрибуте для обоих случаев
+        attr_info = None
+
         if attr_uri:
             q = "MATCH (dp:DatatypeProperty {uri:$attr_uri}) RETURN dp LIMIT 1"
             res = self.repo.run_custom_query(q, {"attr_uri": attr_uri})
+            if res:
+                attr_info = {
+                    "node": res[0]["dp"],
+                    "name": res[0]["dp"]["properties"].get("title")
+                }
         elif attr_name:
             q = f"""
             MATCH (dp:DatatypeProperty)-[:{DOMAIN_REL}]->(c:Class {{uri:$class_uri}})
@@ -233,31 +241,46 @@ class OntologyService:
             RETURN dp LIMIT 1
             """
             res = self.repo.run_custom_query(q, {"class_uri": class_uri, "attr_name": attr_name})
+            if res:
+                attr_info = {
+                    "node": res[0]["dp"],
+                    "name": attr_name
+                }
         else:
             return stats
 
-        if res:
-            node_uri = res[0]["dp"]["properties"].get("uri")
+        # Удаляем узел атрибута
+        if attr_info:
+            node_uri = attr_info["node"]["properties"].get("uri")
             if node_uri and self.repo.delete_node_by_uri(node_uri, detach=True):
                 stats["attribute_node_deleted"] = True
 
-        if attr_name:
-            q_clear = f"""
-            MATCH (root:Class {{uri:$class_uri}})
-            OPTIONAL MATCH (desc:Class)-[:{SUBCLASS_REL}*]->(root)
-            WITH collect(root) + collect(desc) AS classes
-            UNWIND classes AS cl
-            MATCH (o:Object)-[:{TYPE_REL}]->(cl)
-            SET o[$attr_name] = null
-            RETURN count(DISTINCT o) AS cnt
-            """
-            rows = self.repo.run_custom_query(q_clear, {"class_uri": class_uri, "attr_name": attr_name})
-            stats["objects_touched"] = rows[0]["cnt"] if rows else 0
+            # Очищаем поле у объектов (работает для обоих случаев)
+            if attr_info["name"]:
+                q_clear = f"""
+                MATCH (root:Class {{uri:$class_uri}})
+                OPTIONAL MATCH (desc:Class)-[:{SUBCLASS_REL}*]->(root)
+                WITH collect(root) + collect(desc) AS classes
+                UNWIND classes AS cl
+                MATCH (o:Object)-[:{TYPE_REL}]->(cl)
+                SET o[$attr_name] = null
+                RETURN count(DISTINCT o) AS cnt
+                """
+                rows = self.repo.run_custom_query(q_clear, {
+                    "class_uri": class_uri,
+                    "attr_name": attr_info["name"]
+                })
+                stats["objects_touched"] = rows[0]["cnt"] if rows else 0
 
         return stats
 
     # ---------- ObjectProperty ----------
-    def add_class_object_attribute(self, class_uri: str, attr_name: str, range_class_uri: str, attr_uri: str = None, attr_props: dict = None):
+    def add_class_object_attribute(self,
+                                   class_uri: str,
+                                   attr_name: str,
+                                   range_class_uri: str,
+                                   attr_uri: str = None,
+                                   attr_props: dict = None):
         props = dict(attr_props or {})
         props.setdefault("title", attr_name)
         if attr_uri:
@@ -290,7 +313,13 @@ class OntologyService:
         return self.repo.delete_node_by_uri(object_uri, detach=True) > 0
 
     def create_object(self, class_uri: str, properties: dict):
-        props = dict(properties)
+        # Получаем сигнатуру класса для валидации
+        signature = self.collect_signature(class_uri)
+
+        # Валидируем свойства
+        validated_props = self._validate_properties(properties, signature)
+
+        props = dict(validated_props)
         if not props.get("uri"):
             props["uri"] = self.repo.generate_random_string(12)
         node = self.repo.create_node(props, labels=["Object"])
@@ -298,7 +327,54 @@ class OntologyService:
         return node
 
     def update_object(self, object_uri: str, properties: dict):
-        return self.repo.update_node(object_uri, properties, merge=True)
+        # Получаем класс объекта
+        q = f"""
+        MATCH (o:Object {{uri:$uri}})-[:{TYPE_REL}]->(c:Class)
+        RETURN c.uri AS class_uri
+        """
+        result = self.repo.run_custom_query(q, {"uri": object_uri})
+
+        if not result:
+            raise ValueError(f"Object {object_uri} not found or has no class")
+
+        class_uri = result[0]["class_uri"]
+        signature = self.collect_signature(class_uri)
+
+        # Валидируем свойства
+        validated_props = self._validate_properties(properties, signature)
+
+        return self.repo.update_node(object_uri, validated_props, merge=True)
+
+    def _validate_properties(self, properties: dict, signature: dict) -> dict:
+        """
+        Валидирует свойства объекта на основе сигнатуры класса.
+        Возвращает только разрешенные свойства.
+        """
+        validated_props = {}
+
+        # Разрешенные datatype properties
+        allowed_dp = {dp["properties"].get("title") for dp in signature["datatype_properties"]}
+        allowed_dp = {name for name in allowed_dp if name}  # Убираем None
+
+        # Разрешенные object properties (не обрабатываем здесь, т.к. это связи между объектами)
+        allowed_op = {op["properties"].get("title") for op in signature["object_properties"]}
+        allowed_op = {name for name in allowed_op if name}  # Убираем None
+
+        # Все разрешенные свойства
+        all_allowed_props = allowed_dp | allowed_op
+
+        # Служебные свойства, которые всегда разрешены
+        system_props = {"uri", "title", "description"}
+        all_allowed_props |= system_props
+
+        # Фильтруем свойства
+        for prop_name, prop_value in properties.items():
+            if prop_name in all_allowed_props:
+                validated_props[prop_name] = prop_value
+            else:
+                print(f"Warning: Property '{prop_name}' is not allowed for this class")
+
+        return validated_props
 
     # ---------- Signature ----------
     def collect_signature(self, class_uri: str):
@@ -347,10 +423,12 @@ if __name__ == "__main__":
         print("\n=== Added DatatypeProperty ===")
         pprint(name_attr)
 
+        # service.delete_class_attribute(animal["properties"]["uri"], "name")
+        # print("\n=== Deleted DatatypeProperty ===")
+
         # 3. Добавить ObjectProperty Dog -> Animal (например "owner")
 
         person = service.create_class("Person", "Человек")
-
         owner_attr = service.add_class_object_attribute(
             dog["properties"]["uri"], "owner", person["properties"]["uri"]
         )
