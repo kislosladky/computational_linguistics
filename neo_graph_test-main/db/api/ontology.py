@@ -1,6 +1,6 @@
 from typing import Dict
 
-from repository import Neo4jRepository
+from .repository import Neo4jRepository
 from pprint import pprint
 
 SUBCLASS_REL = "SUBCLASS_OF"
@@ -34,14 +34,14 @@ class OntologyService:
 
     def get_class_parents(self, class_uri: str):
         q = f"""
-        MATCH (c:Class {{uri:$uri}})<-[:{SUBCLASS_REL}]-(p:Class)
+        MATCH (c:Class {{uri:$uri}})-[:{SUBCLASS_REL}*]->(p:Class)
         RETURN p
         """
         return [r["p"] for r in self.repo.run_custom_query(q, {"uri": class_uri})]
 
     def get_class_children(self, class_uri: str):
         q = f"""
-        MATCH (child:Class)-[:{SUBCLASS_REL}]->(c:Class {{uri:$uri}})
+        MATCH (child:Class)-[:{SUBCLASS_REL}*]->(c:Class {{uri:$uri}})
         RETURN child
         """
         return [r["child"] for r in self.repo.run_custom_query(q, {"uri": class_uri})]
@@ -285,6 +285,8 @@ class OntologyService:
         props.setdefault("title", attr_name)
         if attr_uri:
             props["uri"] = attr_uri
+        else:
+            props["uri"] = self.repo.generate_random_string(12)
         op = self.repo.create_node(props, labels=["ObjectProperty"])
         self.repo.create_arc(op["uri"], class_uri, rel_type=DOMAIN_REL)
         self.repo.create_arc(op["uri"], range_class_uri, rel_type=RANGE_REL)
@@ -353,19 +355,15 @@ class OntologyService:
         validated_props = {}
 
         # Разрешенные datatype properties
-        allowed_dp = {dp["properties"].get("title") for dp in signature["datatype_properties"]}
-        allowed_dp = {name for name in allowed_dp if name}  # Убираем None
+        allowed_dp = {dp.get("title") for dp in signature.get("datatype_properties", []) if dp.get("title")}
 
-        # Разрешенные object properties (не обрабатываем здесь, т.к. это связи между объектами)
-        allowed_op = {op["properties"].get("title") for op in signature["object_properties"]}
-        allowed_op = {name for name in allowed_op if name}  # Убираем None
-
-        # Все разрешенные свойства
-        all_allowed_props = allowed_dp | allowed_op
+        # Разрешенные object properties (только имена свойств)
+        allowed_op = {op.get("title") for op in signature.get("object_properties", []) if op.get("title")}
 
         # Служебные свойства, которые всегда разрешены
         system_props = {"uri", "title", "description"}
-        all_allowed_props |= system_props
+
+        all_allowed_props = allowed_dp | allowed_op | system_props
 
         # Фильтруем свойства
         for prop_name, prop_value in properties.items():
@@ -376,9 +374,19 @@ class OntologyService:
 
         return validated_props
 
+
     # ---------- Signature ----------
-    def collect_signature(self, class_uri: str):
-        sig = {"datatype_properties": [], "object_properties": []}
+    def collect_signature(self, class_uri: str) -> dict:
+        """
+        Возвращает сигнатуру класса в виде словаря, готового к JSON:
+        {
+            "datatype_properties": [{"id": ..., "title": ..., "description": ...}, ...],
+            "object_properties": [{"id": ..., "title": ..., "description": ..., "range": {...}}, ...]
+        }
+        """
+        signature = {"datatype_properties": [], "object_properties": []}
+
+        # ---------- DatatypeProperties ----------
 
         q_dp = """
         MATCH (c:Class {uri:$uri})
@@ -386,8 +394,20 @@ class OntologyService:
         RETURN collect(dp) AS dps
         """
         rdp = self.repo.run_custom_query(q_dp, {"uri": class_uri})
-        sig["datatype_properties"] = [dp for dp in rdp[0]["dps"] if dp] if rdp else []
+        print(rdp)
+        dps = rdp[0]["dps"] if rdp else []
+        for dp in dps:
+            if not dp:
+                continue
+            props = dict(dp)
+            signature["datatype_properties"].append({
+                "id": props.get("uri"),
+                "title": props.get("title"),
+                "description": props.get("description"),
+                **props
+            })
 
+        # ---------- ObjectProperties ----------
         q_op = f"""
         MATCH (c:Class {{uri:$uri}})
         OPTIONAL MATCH (op:ObjectProperty)-[:{DOMAIN_REL}]->(c)
@@ -398,13 +418,26 @@ class OntologyService:
         if rop:
             ops = rop[0]["ops"]
             ranges = rop[0]["ranges"]
-            sig["object_properties"] = [
-                {**op, "range": ranges[i] if i < len(ranges) else None}
-                for i, op in enumerate(ops) if op
-            ]
-        return sig
+            for i, op in enumerate(ops):
+                if not op:
+                    continue
+                op_props = dict(op)
+                range_node = ranges[i] if i < len(ranges) else None
+                range_props = dict(range_node) if range_node else None
+                signature["object_properties"].append({
+                    "id": op_props.get("uri"),
+                    "title": op_props.get("title"),
+                    "description": op_props.get("description"),
+                    **op_props,
+                    "range": {
+                        "id": range_props.get("uri"),
+                        "title": range_props.get("title"),
+                        "description": range_props.get("description"),
+                        **(range_props or {})
+                    } if range_props else None
+                })
 
-
+        return signature
 
 
 if __name__ == "__main__":

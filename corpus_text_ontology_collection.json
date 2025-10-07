@@ -1,0 +1,212 @@
+{
+  "info": {
+    "name": "Corpus-Text-Ontology API",
+    "_postman_id": "e7a3f9c2-1234-5678-9876-abcdefabcdef",
+    "description": "API для работы с корпусами, текстами и онтологией",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Corpus",
+      "item": [
+        {
+          "name": "Create Corpus",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"name\": \"Corpus 1\", \"description\": \"Описание\", \"genre\": \"Научный\" }"
+            },
+            "url": { "raw": "http://localhost:8000/corpus/create/", "host": ["http://localhost:8000"], "path": ["corpus", "create"] }
+          }
+        },
+        {
+          "name": "Update Corpus",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"name\": \"Corpus Updated\", \"description\": \"Новое описание\", \"genre\": \"Художественный\" }"
+            },
+            "url": { "raw": "http://localhost:8000/corpus/1/update/", "host": ["http://localhost:8000"], "path": ["corpus", "1", "update"] }
+          }
+        },
+        {
+          "name": "Get Corpus",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:8000/corpus/1/", "host": ["http://localhost:8000"], "path": ["corpus", "1"] }
+          }
+        },
+        {
+          "name": "Delete Corpus",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "http://localhost:8000/corpus/1/delete/", "host": ["http://localhost:8000"], "path": ["corpus", "1", "delete"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Text",
+      "item": [
+        {
+          "name": "Create Text",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"name\": \"Text 1\", \"description\": \"Описание текста\", \"content\": \"Содержимое текста\", \"corpus\": 1 }"
+            },
+            "url": { "raw": "http://localhost:8000/text/create/", "host": ["http://localhost:8000"], "path": ["text", "create"] }
+          }
+        },
+        {
+          "name": "Update Text",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"name\": \"Text Updated\", \"description\": \"Обновленное описание\", \"content\": \"Новый текст\", \"corpus\": 1 }"
+            },
+            "url": { "raw": "http://localhost:8000/text/1/update/", "host": ["http://localhost:8000"], "path": ["text", "1", "update"] }
+          }
+        },
+        {
+          "name": "Get Text",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:8000/text/1/", "host": ["http://localhost:8000"], "path": ["text", "1"] }
+          }
+        },
+        {
+          "name": "Delete Text",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "http://localhost:8000/text/1/delete/", "host": ["http://localhost:8000"], "path": ["text", "1", "delete"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ontology",
+      "item": [
+        {
+          "name": "Get Ontology",
+          "request": { "method": "GET", "url": { "raw": "http://localhost:8000/ontology/", "host": ["http://localhost:8000"], "path": ["ontology"] } }
+        },
+        {
+          "name": "Get Ontology Parent Classes",
+          "request": { "method": "GET", "url": { "raw": "http://localhost:8000/ontology/parents/", "host": ["http://localhost:8000"], "path": ["ontology", "parents"] } }
+        },
+        {
+          "name": "Get Class",
+          "request": { "method": "GET", "url": { "raw": "http://localhost:8000/class/{uri}/", "host": ["http://localhost:8000"], "path": ["class", "{uri}"] } }
+        },
+        {
+          "name": "Get Class Parents",
+          "request": { "method": "GET", "url": { "raw": "http://localhost:8000/class/{uri}/parents/", "host": ["http://localhost:8000"], "path": ["class", "{uri}", "parents"] } }
+        },
+        {
+          "name": "Get Class Children",
+          "request": { "method": "GET", "url": { "raw": "http://localhost:8000/class/{uri}/children/", "host": ["http://localhost:8000"], "path": ["class", "{uri}", "children"] } }
+        },
+        {
+          "name": "Get Class Objects",
+          "request": { "method": "GET", "url": { "raw": "http://localhost:8000/class/{uri}/objects/", "host": ["http://localhost:8000"], "path": ["class", "{uri}", "objects"] } }
+        },
+        {
+          "name": "Create Class",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"name\": \"Animal\", \"description\": \"Животное\", \"parent_uri\": null }" },
+            "url": { "raw": "http://localhost:8000/class/create/", "host": ["http://localhost:8000"], "path": ["class", "create"] }
+          }
+        },
+        {
+          "name": "Update Class",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"name\": \"Dog\", \"description\": \"Собака\" }" },
+            "url": { "raw": "http://localhost:8000/class/{uri}/update/", "host": ["http://localhost:8000"], "path": ["class", "{uri}", "update"] }
+          }
+        },
+        {
+          "name": "Delete Class",
+          "request": { "method": "DELETE", "url": { "raw": "http://localhost:8000/class/{uri}/delete/", "host": ["http://localhost:8000"], "path": ["class", "{uri}", "delete"] } }
+        },
+        {
+          "name": "Add Class Attribute",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"class_uri\": \"Dog\", \"attr_name\": \"age\", \"datatype\": \"integer\" }" },
+            "url": { "raw": "http://localhost:8000/class/{uri}/attribute/add/", "host": ["http://localhost:8000"], "path": ["class", "{uri}", "attribute", "add"] }
+          }
+        },
+        {
+          "name": "Delete Class Attribute",
+          "request": { "method": "DELETE", "url": { "raw": "http://localhost:8000/class/{uri}/attribute/delete/?attr_name=age", "host": ["http://localhost:8000"], "path": ["class", "{uri}", "attribute", "delete"], "query": [{ "key": "attr_name", "value": "age" }] } }
+        },
+        {
+          "name": "Add Class Object Attribute",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"class_uri\": \"Dog\", \"attr_name\": \"owner\", \"range_class_uri\": \"Person\" }" },
+            "url": { "raw": "http://localhost:8000/class/{uri}/object-attribute/add/", "host": ["http://localhost:8000"], "path": ["class", "{uri}", "object-attribute", "add"] }
+          }
+        },
+        {
+          "name": "Delete Class Object Attribute",
+          "request": { "method": "DELETE", "url": { "raw": "http://localhost:8000/class/object-attribute/{object_property_uri}/delete/", "host": ["http://localhost:8000"], "path": ["class", "object-attribute", "{object_property_uri}", "delete"] } }
+        },
+        {
+          "name": "Add Class Parent",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"parent_uri\": \"Animal\", \"target_uri\": \"Dog\" }" },
+            "url": { "raw": "http://localhost:8000/class/{uri}/parent/add/", "host": ["http://localhost:8000"], "path": ["class", "{uri}", "parent", "add"] }
+          }
+        },
+        {
+          "name": "Get Object",
+          "request": { "method": "GET", "url": { "raw": "http://localhost:8000/object/{uri}/", "host": ["http://localhost:8000"], "path": ["object", "{uri}"] } }
+        },
+        {
+          "name": "Create Object",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"class_uri\": \"Dog\", \"attributes\": { \"name\": \"Шарик\" } }" },
+            "url": { "raw": "http://localhost:8000/object/create/", "host": ["http://localhost:8000"], "path": ["object", "create"] }
+          }
+        },
+        {
+          "name": "Update Object",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"attributes\": { \"name\": \"Тузик\" } }" },
+            "url": { "raw": "http://localhost:8000/object/{uri}/update/", "host": ["http://localhost:8000"], "path": ["object", "{uri}", "update"] }
+          }
+        },
+        {
+          "name": "Delete Object",
+          "request": { "method": "DELETE", "url": { "raw": "http://localhost:8000/object/{uri}/delete/", "host": ["http://localhost:8000"], "path": ["object", "{uri}", "delete"] } }
+        },
+        {
+          "name": "Collect Signature",
+          "request": { "method": "GET", "url": { "raw": "http://localhost:8000/class/{uri}/collect-signature/", "host": ["http://localhost:8000"], "path": ["class", "{uri}", "collect-signature"] } }
+        }
+      ]
+    }
+  ]
+}
