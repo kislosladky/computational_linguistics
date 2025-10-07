@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Any, Dict, List, Optional
 
 from .repository import Neo4jRepository
 from pprint import pprint
@@ -314,7 +314,7 @@ class OntologyService:
     def delete_object(self, object_uri: str):
         return self.repo.delete_node_by_uri(object_uri, detach=True) > 0
 
-    def create_object(self, class_uri: str, properties: dict):
+    def create_object(self, class_uri: str, properties: dict, relations: Optional[List[Dict[str, Any]]] = None):
         # Получаем сигнатуру класса для валидации
         signature = self.collect_signature(class_uri)
 
@@ -326,6 +326,42 @@ class OntologyService:
             props["uri"] = self.repo.generate_random_string(12)
         node = self.repo.create_node(props, labels=["Object"])
         self.repo.create_arc(node["uri"], class_uri, rel_type=TYPE_REL)
+
+        # Создаём связи из аргумента relations
+        relations = relations or []
+        for rel in relations:
+            direction = rel.get("direction") or 1
+            target_uri = rel.get("target_uri")
+            rel_uri = rel["rel_uri"]
+
+            if not target_uri or not rel_uri:
+                continue
+
+            # достаём узел класса связи
+            rel_node = self.repo.get_node_by_uri(rel_uri)
+            if not rel_node:
+                continue  # если связи нет в онтологии → пропускаем
+
+            rel_type = dict(rel_node)
+            print(rel_type )
+            rel_type = rel_type.get("properties").get("title")
+            if not rel_type:
+                continue  # если в узле не задано поле type → тоже пропускаем
+
+            # создаём связь с учётом направления
+            if direction == 1:
+                self.repo.create_arc(
+                    node1_uri=node["uri"],
+                    node2_uri=target_uri,
+                    rel_type=rel_type
+                )
+            elif direction == -1:
+                self.repo.create_arc(
+                    node1_uri=target_uri,
+                    node2_uri=node["uri"],
+                    rel_type=rel_type
+                )
+
         return node
 
     def update_object(self, object_uri: str, properties: dict):

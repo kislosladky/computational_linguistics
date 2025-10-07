@@ -245,8 +245,10 @@ def create_object(request):
 
     props = request.data.get("properties", {})
 
+    relations = request.data.get("relations", {})
+
     # Создаём объект через OntologyService
-    node = service.create_object(class_uri, props)
+    node = service.create_object(class_uri, props, relations)
 
     # Node уже словарь с _type и properties, безопасный для JSON
     return Response(node, status=status.HTTP_201_CREATED)
