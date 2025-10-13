@@ -9,6 +9,7 @@ from django.db.models import Q
 from.onthology_namespace import *
 from .models import Test
 from core.settings import *
+import numpy as np
 
 # API IMPORTS
 from rest_framework.response import Response
@@ -28,6 +29,9 @@ from .api.ontology import OntologyService
 from .api.repository import Neo4jRepository
 
 from pprint import pprint
+
+from .embedding_service import compare_texts_by_ids
+
 
 @api_view(['GET', ])
 @permission_classes((AllowAny,))
@@ -319,3 +323,16 @@ def add_class_parent(request, uri):
 def collect_signature(request, uri):
     sig = service.collect_signature(uri)
     return JsonResponse(sig)
+
+
+# ---------- Embeddings ----------
+@api_view(["GET"])
+@permission_classes((AllowAny,))
+def compare_texts(request, id1, id2):
+    """
+    Возвращает косинусное сходство между двумя текстами по их id.
+    """
+    
+    similarity = compare_texts_by_ids(id1, id2)
+
+    return Response({"similarity": similarity})

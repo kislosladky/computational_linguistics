@@ -1,5 +1,5 @@
 from django.urls import path
-from django.conf.urls import url
+
 from . import views
 
 from db.views import (
@@ -58,4 +58,6 @@ urlpatterns = [
     # Signature
     path("class/<str:uri>/collect-signature", views.collect_signature, name="collect_signature"),
 
+    # Embeddings
+    path("compare/<int:id1>/<int:id2>", views.compare_texts, name="compare_texts"),
 ]
